@@ -39,7 +39,7 @@ if 'GNUPLOT' in os.environ:
 conf = {
     'max_domains': 10,
     'max_ext_length': 10,
-    'style': '../statics/css/gitstats.css',
+    'style': 'static/css/gitstats.css',
     'max_authors': 20,
     'authors_top': 5,
     'commit_begin': '',
@@ -56,7 +56,7 @@ def getpipeoutput(cmds, quiet=False):
     if not quiet and ON_LINUX and os.isatty(1):
         print('>> ' + ' | '.join(cmds), end=' ')
         sys.stdout.flush()
-    p = subprocess.Popen(cmds[0], stdout=subprocess.PIPE, shell=True)
+    p = subprocess.Popen(cmds[0], stdout=subprocess.PIPE, stdin=subprocess.PIPE, shell=True)
     processes = [p]
     for x in cmds[1:]:
         p = subprocess.Popen(x, stdin=p.stdout, stdout=subprocess.PIPE, shell=True)
@@ -730,18 +730,12 @@ class HTMLReportCreator(ReportCreator):
         ReportCreator.create(self, data, path)
         self.title = data.projectname
 
-        # copy static files. Looks in the binary directory, ../share/gitstats and /usr/share/gitstats
         binarypath = os.path.dirname(os.path.abspath(__file__))
-        secondarypath = os.path.join(binarypath, '..', 'share', 'gitstats')
-        basedirs = [binarypath, secondarypath, '/usr/share/gitstats']
-        for file in (conf['style'], '../statics/js/sortable.js', '../statics/images/arrow-up.gif', '../statics/images/arrow-down.gif', '../statics/images/arrow-none.gif'):
-            for base in basedirs:
-                src = base + '/' + file
-                if os.path.exists(src):
-                    shutil.copyfile(src, path + '/' + file)
-                    break
-            else:
-                print('Warning: "%s" not found, so not copied (searched: %s)' % (file, basedirs))
+        for file in (conf['style'], 'static/js/sortable.js', 'static/images/arrow-up.gif', 'static/images/arrow-down.gif', 'static/images/arrow-none.gif'):
+            src = binarypath + '/' + file
+            dest = path + '/' + file
+            os.makedirs(os.path.dirname(dest), exist_ok=True)
+            shutil.copyfile(src, dest)
 
         with open(path + "/index.html", 'w', encoding='utf-8') as f:
             format = '%Y-%m-%d %H:%M:%S'
