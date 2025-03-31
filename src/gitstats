@@ -108,9 +108,14 @@ VERSION = 0
 def getversion():
     global VERSION
     if VERSION == 0:
+        # Get absolute path of script directory
         gitstats_repo = os.path.dirname(os.path.abspath(__file__))
-        VERSION = getpipeoutput(["git --git-dir=%s/.git --work-tree=%s rev-parse --short %s" %
-            (gitstats_repo, gitstats_repo, getcommitrange('HEAD').split('\n')[0])])
+        # Check if .git directory exists
+        if os.path.exists(os.path.join(gitstats_repo, '.git')):
+            VERSION = getpipeoutput(["git --git-dir=%s/.git --work-tree=%s rev-parse --short %s" %
+                (gitstats_repo, gitstats_repo, getcommitrange('HEAD').split('\n')[0])])
+        else:
+            VERSION = 'unknown'
     return VERSION
 
 def getgitversion():
@@ -269,15 +274,8 @@ class DataCollector:
     # Save cacheable data
     def saveCache(self, cachefile):
         print('Saving cache...')
-        tempfile = cachefile + '.tmp'
-        with open(tempfile, 'wb') as f:
-            data = zlib.compress(pickle.dumps(self.cache, protocol=2))
-            f.write(data)
-        try:
-            os.remove(cachefile)
-        except OSError:
-            pass
-        os.rename(tempfile, cachefile)
+        with open(cachefile, 'wb') as f:
+            f.write(zlib.compress(pickle.dumps(self.cache)))
 
 class GitDataCollector(DataCollector):
     def collect(self, dir):

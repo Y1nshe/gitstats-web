@@ -1,26 +1,34 @@
 <!DOCTYPE html>
-<html lang="zh">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Git 仓库统计</title>
+    <title>Git Repository Statistics</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/path-selector.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
 <body>
-    <h1>Git 仓库统计</h1>
-    <form id="statsForm">
-        <div class="form-group">
-            <label for="repositoryPath">仓库路径：</label>
-            <input type="text" id="repositoryPath" name="repositoryPath" required>
-        </div>
-        <div class="form-group">
-            <label for="outputPath">输出路径：</label>
-            <input type="text" id="outputPath" name="outputPath" required>
-        </div>
-        <button type="submit">生成统计报告</button>
-    </form>
-    <div id="output"></div>
+    <div class="container">
+        <h1>Git Repository Statistics</h1>
+        <form id="statsForm">
+            <div class="path-selector-container">
+                <label for="repositoryPath">Repository Path:</label>
+                <input type="text" id="repositoryPathInput" required value="{{ default_dir }}">
+                <button type="button" id="repositoryPathToggleButton">Expand</button>
+                <div id="repositoryPathDirectorySelector"></div>
+            </div>
+            <div class="path-selector-container">
+                <label for="outputPath">Output Path:</label>
+                <input type="text" id="outputPathInput" required value="{{ default_dir }}">
+                <button type="button" id="outputPathToggleButton">Expand</button>
+                <div id="outputPathDirectorySelector"></div>
+            </div>
+            <button type="submit">Generate Statistics Report</button>
+        </form>
+        <div id="output"></div>
+    </div>
 
-    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/path-selector.js') }}" type="module"></script>
+    <script src="{{ url_for('static', filename='js/main.js') }}" type="module"></script>
 </body>
 </html>
