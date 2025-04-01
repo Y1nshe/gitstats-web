@@ -11,7 +11,7 @@ A web application for generating Git repository statistics using Docker.
 
 1. Clone the repository:
 ```bash
-git clone <repository-url>
+git clone https://github.com/Y1nshe/gitstats-web.git
 cd gitstats
 ```
 
