@@ -5,33 +5,55 @@ import sys
 import json
 import threading
 import queue
-import re
 
 app = Flask(__name__)
 
+def normalize_path(path):
+    """Normalize path format to ensure it follows the 'left-closed-right-open' convention:
+    - Must start with '/'
+    - Must not end with '/' (except for root path '/')
+
+    Special case:
+    - Empty path or '/' will return '/'
+
+    Examples:
+    - normalize_path('')      -> '/'
+    - normalize_path('/')     -> '/'
+    - normalize_path('/path') -> '/path'
+    - normalize_path('path/') -> '/path'
+    - normalize_path('/path/') -> '/path'
+    """
+    if not path or path == '/':
+        return '/'
+
+    # Ensure path starts with '/'
+    if not path.startswith('/'):
+        path = '/' + path
+
+    # Remove trailing '/' if exists and path is not root
+    while len(path) > 1 and path.endswith('/'):
+        path = path[:-1]
+
+    return path
+
 # Global configuration
 app.config['PLATFORM'] = os.environ.get('PLATFORM', 'LINUX')  # Default to LINUX
-app.config['DEFAULT_DIR'] = os.environ.get('DEFAULT_DIR', '/')  # Default to root directory
+app.config['REPOSITORY_ROOT_PATH'] = normalize_path(os.environ.get('REPOSITORY_ROOT_PATH', '/'))  # Default to root directory
+app.config['OUTPUT_ROOT_PATH'] = normalize_path(os.environ.get('OUTPUT_ROOT_PATH', '/'))  # Default to root directory
+app.config['MOUNT_PATH'] = normalize_path(os.environ.get('MOUNT_PATH', '/'))  # Default to root directory
+print(app.config['MOUNT_PATH'])
+print(app.config['REPOSITORY_ROOT_PATH'])
+print(app.config['OUTPUT_ROOT_PATH'])
+print(app.config['PLATFORM'])
 
 # Queue for storing process output
 output_queue = queue.Queue()
 
-def windows_to_linux_path(win_path):
-    """Convert Windows format path to Linux format path in Docker"""
-    if not win_path:
-        return '/mnt'
-
-    # Handle absolute paths (e.g., C:\path\to\directory)
-    if re.match(r'^[a-zA-Z]:', win_path):
-        drive, rest = win_path.split(':', 1)
-        # Replace backslashes with forward slashes, remove leading slash
-        rest = rest.replace('\\', '/')
-        if rest.startswith('/'):
-            rest = rest[1:]
-        return f'/mnt/{drive.lower()}/{rest}'
-
-    # Handle relative paths or paths already in Linux format
-    return win_path.replace('\\', '/')
+def get_full_path(path):
+    """Get the full path including MOUNT_PATH"""
+    if app.config['MOUNT_PATH'] == '/':
+        return path
+    return app.config['MOUNT_PATH'] + path
 
 def read_stream(stream, prefix, queue, stop_event):
     """Read stream and send content to queue"""
@@ -128,7 +150,10 @@ def run_gitstats(repository_path, output_path):
 
 @app.route('/')
 def index():
-    return render_template('index.html', default_dir=app.config['DEFAULT_DIR'])
+    return render_template('index.html',
+                         repository_root_path=app.config['REPOSITORY_ROOT_PATH'],
+                         output_root_path=app.config['OUTPUT_ROOT_PATH'],
+                         platform=app.config['PLATFORM'])
 
 @app.route('/generate', methods=['POST'])
 def generate():
@@ -138,36 +163,27 @@ def generate():
         if not data:
             return jsonify({'error': 'No JSON data provided'}), 400
 
-        repository_path = data.get('repositoryPath', '')
-        output_path = data.get('outputPath', '')
-        platform = app.config['PLATFORM']
+        repository_path = normalize_path(data.get('repositoryPath', '/'))
+        output_path = normalize_path(data.get('outputPath', '/'))
 
-        # Handle different platforms
-        if platform in ['LINUX', 'WSL']:
-            # Direct processing for LINUX and WSL platforms
-            current_repo_path = repository_path or '/'
-            current_output_path = output_path or '/'
-        elif platform == 'WINDOWS':
-            # Special handling for WINDOWS platform
-            current_repo_path = windows_to_linux_path(repository_path)
-            current_output_path = windows_to_linux_path(output_path)
-        else:
-            return jsonify({'error': f'Unsupported platform: {platform}'}), 400
+        # Get full paths for actual file system operations
+        full_repo_path = get_full_path(repository_path)
+        full_output_path = get_full_path(output_path)
 
-        print(f"Repository path: {current_repo_path}")
-        print(f"Output path: {current_output_path}")
+        print(f"Repository path: {full_repo_path}")
+        print(f"Output path: {full_output_path}")
 
         # Verify repository path exists and is a directory
-        if not os.path.exists(current_repo_path):
-            return jsonify({'error': f'Repository path not found: {current_repo_path}'}), 404
-        if not os.path.isdir(current_repo_path):
-            return jsonify({'error': f'Repository path is not a directory: {current_repo_path}'}), 400
+        if not os.path.exists(full_repo_path):
+            return jsonify({'error': f'Repository path not found: {repository_path}'}), 404
+        if not os.path.isdir(full_repo_path):
+            return jsonify({'error': f'Repository path is not a directory: {repository_path}'}), 400
 
         # Verify output path exists and is a directory
-        if not os.path.exists(current_output_path):
-            return jsonify({'error': f'Output path not found: {current_output_path}'}), 404
-        if not os.path.isdir(current_output_path):
-            return jsonify({'error': f'Output path is not a directory: {current_output_path}'}), 400
+        if not os.path.exists(full_output_path):
+            return jsonify({'error': f'Output path not found: {output_path}'}), 404
+        if not os.path.isdir(full_output_path):
+            return jsonify({'error': f'Output path is not a directory: {output_path}'}), 400
 
         # Clear output queue
         while not output_queue.empty():
@@ -176,7 +192,7 @@ def generate():
         # Run gitstats in a new thread
         thread = threading.Thread(
             target=run_gitstats,
-            args=(current_repo_path, current_output_path)
+            args=(full_repo_path, full_output_path)
         )
         thread.start()
 
@@ -210,46 +226,32 @@ def browse():
             return jsonify({'error': 'No JSON data provided'}), 400
 
         path = data.get('path', '')
-        platform = app.config['PLATFORM']
+        current_path = normalize_path(path)
 
-        # Handle different platforms
-        if platform in ['LINUX', 'WSL']:
-            # Direct processing for LINUX and WSL platforms
-            current_path = path or '/'  # Use root directory if path is empty
-        elif platform == 'WINDOWS':
-            # Special handling for WINDOWS platform
-            current_path = windows_to_linux_path(path)
-        else:
-            return jsonify({'error': f'Unsupported platform: {platform}'}), 400
-
-        print(f"Current path: {current_path}")
+        # Get full path for actual file system operations
+        full_path = get_full_path(current_path)
+        print(f"Current path: {full_path}")
 
         # Verify path exists and is a directory
-        if not os.path.exists(current_path):
-            return jsonify({'error': f'Path not found: {current_path}'}), 404
-        if not os.path.isdir(current_path):
-            return jsonify({'error': f'Path is not a directory: {current_path}'}), 400
+        if not os.path.exists(full_path):
+            return jsonify({'error': f'Path not found: {path}'}), 404
+        if not os.path.isdir(full_path):
+            return jsonify({'error': f'Path is not a directory: {path}'}), 400
 
         # Get subdirectories
         subdirectories = []
-        for item in os.listdir(current_path):
-            item_path = os.path.join(current_path, item)
+        for item in os.listdir(full_path):
+            item_path = os.path.join(full_path, item)
             if os.path.isdir(item_path):
-                # For Windows platform and /mnt path, only show single-letter drive letters
-                if platform == 'WINDOWS' and current_path == '/mnt':
-                    if len(item) == 1 and item.isalpha():
-                        subdirectories.append(f"{item.upper()}:")
-                else:
-                    subdirectories.append(item)
+                subdirectories.append(item)
 
         return jsonify({
             'directories': subdirectories,
-            'current_path': current_path
         })
     except PermissionError:
         return jsonify({'error': 'Permission denied'}), 403
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-if __name__ == '__main__':
-    app.run(debug=True)
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=5000)

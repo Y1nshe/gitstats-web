@@ -2,64 +2,94 @@ import PathSelector from './path-selector.js';
 
 let eventSource = null;
 
-document.addEventListener('DOMContentLoaded', function() {
-    // Get element references
-    const statsForm = document.getElementById('statsForm');
-    const submitButton = statsForm.querySelector('button[type="submit"]');
-    const outputDiv = document.getElementById('output');
+document.addEventListener('DOMContentLoaded', () => {
+    // Get platform from template
+    const platform = document.getElementById('platform').value || 'LINUX';
+    console.log(platform);
 
-    // Form submission handler
-    statsForm.addEventListener('submit', function(e) {
-        e.preventDefault();
-        const repositoryPath = document.getElementById('repositoryPathInput').value;
-        const outputPath = document.getElementById('outputPathInput').value;
-        const outputDiv = document.getElementById('output');
+    // Initialize path selectors
+    const repositoryPathSelector = new PathSelector(
+        'repositoryPathInput',
+        'repositoryPathToggleButton',
+        'repositoryPathDirectorySelector',
+        'repositoryRootPath',
+        platform
+    );
 
-        if (!repositoryPath || !outputPath) {
-            outputDiv.innerHTML = '<div class="error">Please fill in all required information</div>';
-            return;
+    const outputPathSelector = new PathSelector(
+        'outputPathInput',
+        'outputPathToggleButton',
+        'outputPathDirectorySelector',
+        'outputRootPath',
+        platform
+    );
+
+    const repositoryFullPath = document.getElementById('repositoryFullPath');
+    const outputFullPath = document.getElementById('outputFullPath');
+    repositoryFullPath.textContent = repositoryPathSelector.getFullPath();
+    outputFullPath.textContent = outputPathSelector.getFullPath();
+
+    // Get form and output elements
+    const form = document.getElementById('statsForm');
+    const submitButton = form.querySelector('button[type="submit"]');
+    const output = document.getElementById('output');
+
+    // Function to update full path display
+    function updateFullPathDisplay() {
+        if (repositoryFullPath) {
+            repositoryFullPath.textContent = repositoryPathSelector.getFullPath();
         }
+        if (outputFullPath) {
+            outputFullPath.textContent = outputPathSelector.getFullPath();
+        }
+    }
+
+    // Add input event listeners to update full path display
+    document.getElementById('repositoryPathInput').addEventListener('input', updateFullPathDisplay, false);
+    document.getElementById('outputPathInput').addEventListener('input', updateFullPathDisplay, false);
+
+    // Handle form submission
+    form.addEventListener('submit', async (e) => {
+        e.preventDefault();
 
         // Disable form
         submitButton.disabled = true;
-        outputDiv.innerHTML = 'Generating statistics report...';
+        output.innerHTML = 'Generating statistics report...';
 
         // Close previous connection if exists
         if (eventSource) {
             eventSource.close();
         }
 
-        // Send request to backend
-        fetch('/generate', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                repositoryPath: repositoryPath,
-                outputPath: outputPath
-            })
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.error) {
-                outputDiv.innerHTML = `<div class="error">Error: ${data.error}</div>`;
-                submitButton.disabled = false;
-                return;
+        try {
+            const response = await fetch('/generate', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    repositoryPath: repositoryPathSelector.getFullPath(),
+                    outputPath: outputPathSelector.getFullPath()
+                })
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || `Request failed (${response.status})`);
             }
 
             // Establish SSE connection
             eventSource = new EventSource('/stream');
-            let output = '';
+            let outputText = '';
 
             eventSource.onmessage = function(event) {
                 const data = JSON.parse(event.data);
                 if (data.message === 'heartbeat') {
                     return;
                 }
-                output += data.message + '\n';
-                outputDiv.textContent = output;
-                outputDiv.scrollTop = outputDiv.scrollHeight;
+                outputText += data.message + '\n';
+                output.textContent = outputText;
+                output.scrollTop = output.scrollHeight;
 
                 // Check if it's a completion message
                 if (data.message.includes('Statistics report generation completed!')) {
@@ -70,17 +100,11 @@ document.addEventListener('DOMContentLoaded', function() {
             eventSource.onerror = function(error) {
                 console.error('SSE Error:', error);
                 eventSource.close();
-                this.querySelector('button[type="submit"]').disabled = false;
-            }.bind(this);
-        })
-        .catch(error => {
-            console.error('Request Error:', error);
-            outputDiv.innerHTML = `<div class="error">Request Error: ${error.message}</div>`;
-            this.querySelector('button[type="submit"]').disabled = false;
-        });
+                submitButton.disabled = false;
+            };
+        } catch (error) {
+            output.textContent = `Error: ${error.message}`;
+            submitButton.disabled = false;
+        }
     });
-
-    // Initialize path selectors
-    const repositoryPathSelector = new PathSelector('repositoryPathInput', 'repositoryPathToggleButton', 'repositoryPathDirectorySelector');
-    const outputPathSelector = new PathSelector('outputPathInput', 'outputPathToggleButton', 'outputPathDirectorySelector');
 });

@@ -1,0 +1,18 @@
+services:
+  gitstats:
+    build: .
+    container_name: gitstats
+    ports:
+      - "5000:5000"
+    environment:
+      - PLATFORM=WINDOWS
+      - REPOSITORY_ROOT_PATH=/mnt/host
+      - OUTPUT_ROOT_PATH=/mnt/host
+      - MOUNT_PATH=/mount
+    volumes:
+      - /:/mount:rw
+    privileged: true
+    # Set working directory
+    working_dir: /app
+    # Set restart policy
+    restart: unless-stopped

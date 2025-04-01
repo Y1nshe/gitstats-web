@@ -3,32 +3,50 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Git Repository Statistics</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/path-selector.css') }}">
+    <title>Git Statistics Generator</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
 <body>
     <div class="container">
-        <h1>Git Repository Statistics</h1>
+        <h1>Git Statistics Generator</h1>
         <form id="statsForm">
-            <div class="path-selector-container">
-                <label for="repositoryPath">Repository Path:</label>
-                <input type="text" id="repositoryPathInput" required value="{{ default_dir }}">
-                <button type="button" id="repositoryPathToggleButton">Expand</button>
-                <div id="repositoryPathDirectorySelector"></div>
+            <div class="form-group">
+                <label for="repositoryPathInput">Repository Path:</label>
+                <div class="path-input-group">
+                    <input type="text" id="repositoryPathInput" name="repositoryPath" required>
+                    <button type="button" id="repositoryPathToggleButton" class="toggle-button">Browse</button>
+                </div>
+                <div id="repositoryPathDirectorySelector" class="directory-selector"></div>
+                <div class="full-path">
+                    <span>Full Path: </span>
+                    <span id="repositoryFullPath"></span>
+                </div>
             </div>
-            <div class="path-selector-container">
-                <label for="outputPath">Output Path:</label>
-                <input type="text" id="outputPathInput" required value="{{ default_dir }}">
-                <button type="button" id="outputPathToggleButton">Expand</button>
-                <div id="outputPathDirectorySelector"></div>
+
+            <div class="form-group">
+                <label for="outputPathInput">Output Path:</label>
+                <div class="path-input-group">
+                    <input type="text" id="outputPathInput" name="outputPath" required>
+                    <button type="button" id="outputPathToggleButton" class="toggle-button">Browse</button>
+                </div>
+                <div id="outputPathDirectorySelector" class="directory-selector"></div>
+                <div class="full-path">
+                    <span>Full Path: </span>
+                    <span id="outputFullPath"></span>
+                </div>
             </div>
-            <button type="submit">Generate Statistics Report</button>
+
+            <button type="submit">Generate Statistics</button>
         </form>
-        <div id="output"></div>
+
+        <div id="output" class="output"></div>
     </div>
 
-    <script src="{{ url_for('static', filename='js/path-selector.js') }}" type="module"></script>
-    <script src="{{ url_for('static', filename='js/main.js') }}" type="module"></script>
+    <!-- Hidden inputs for configuration -->
+    <input type="hidden" id="platform" value="{{ platform }}">
+    <input type="hidden" id="repositoryRootPath" value="{{ repository_root_path }}">
+    <input type="hidden" id="outputRootPath" value="{{ output_root_path }}">
+
+    <script type="module" src="{{ url_for('static', filename='js/main.js') }}"></script>
 </body>
 </html>
