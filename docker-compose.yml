@@ -1,6 +1,6 @@
 services:
   gitstats:
-    build: .
+    image: yinshe/gitstats
     container_name: gitstats
     ports:
       - "5000:5000"

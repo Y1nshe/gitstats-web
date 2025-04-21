@@ -5,22 +5,23 @@ A web application for generating Git repository statistics using Docker.
 ## Prerequisites
 
 - Docker
-- Docker Compose
 
 ## Quick Start
 
-1. Clone the repository:
+### Windows Users
+
 ```bash
-git clone https://github.com/Y1nshe/gitstats-web.git
-cd gitstats
+docker run -d --name gitstats -p 5000:5000 -e PLATFORM=WINDOWS -e REPOSITORY_ROOT_PATH=/mnt/host -e OUTPUT_ROOT_PATH=/mnt/host -e MOUNT_PATH=/mount -v /:/mount:rw --privileged yinshe/gitstats
 ```
 
-2. Build and run the container:
+### Linux Users
+
 ```bash
-docker compose up --build
+docker run -d --name gitstats -p 5000:5000 -e PLATFORM=LINUX -e REPOSITORY_ROOT_PATH=/ -e OUTPUT_ROOT_PATH=/ -e MOUNT_PATH=/mount -v /:/mount:rw --privileged yinshe/gitstats
 ```
 
-3. Access the application:
+### Access the Application
+
 Open your browser and navigate to `http://localhost:5000`
 
 ## Configuration
@@ -104,4 +105,4 @@ This is the standard configuration because:
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the GNU General Public License v3.0 (GPL-3.0) - see the [LICENSE](LICENSE) file for details.
